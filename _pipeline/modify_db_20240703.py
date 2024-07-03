@@ -66,7 +66,7 @@ def process_log_entries(db_uri, log_entries):
             record = session.query(DbVar).filter_by(Variant_Record=variant_record).first()
             if record:
                 setattr(record, changed_column, new_value)
-                #session.commit()
+                session.commit()
 
             # Log the change to db_var_version_history
             version_history_entry = DbVarVersionHistory(
@@ -78,6 +78,6 @@ def process_log_entries(db_uri, log_entries):
                 Changed_By='user'  # Assuming 'user' as the user making the change
             )
             session.add(version_history_entry)
-            #session.commit()
-    session.commit()
+            session.commit()
+
     session.close()

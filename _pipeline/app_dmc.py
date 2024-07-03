@@ -27,7 +27,7 @@ app.title = 'PBDA: Variant Vault'
 
 navbar = dmc.Group(
     children=[
-        dmc.Anchor(dmc.Text("Home", fw=500, c="white"), href="/"),
+        dmc.Anchor(dmc.Text("Home", fw=500, c="white"), href="/", styles={"root":{"paddingRight":30}}),
         dmc.Menu(
             [
                 dmc.MenuTarget(dmc.Button("View Database", variant="light", color="white")),
@@ -57,7 +57,7 @@ navbar = dmc.Group(
         ),
     ],
     align="center",
-    gap="xs",
+    gap="0",
     style={'zIndex': 0, 'fontFamily':'Monaco, monospace', 'color':'white'},
 )
 

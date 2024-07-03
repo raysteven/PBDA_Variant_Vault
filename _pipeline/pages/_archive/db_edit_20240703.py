@@ -105,16 +105,11 @@ DB_URI = f'sqlite:///{vava_db_dir}/{database_file_brcas}'
 def read_data_from_database(DB_URI):
     print('Reading from Database!')
     engine = create_engine(DB_URI)
-    connection = engine.connect()
-    
-    try:
-        query = f"SELECT * FROM {variant_table}"
-        df = pd.read_sql(query, connection)
-        print('Successfully reading from Database!')
-    finally:
-        connection.close()  # Ensure the connection is closed
-        engine.dispose()  # Dispose the engine to release resources
-    
+    query = f"SELECT * FROM {variant_table}"
+    df = pd.read_sql(query, engine)
+    #df.set_index('Variant_Record', inplace=True)
+    print('Successfully reading from Database!')
+    #print(df)
     return df
 
 #df = read_data_from_database(DB_URI)
