@@ -47,7 +47,7 @@ def convert_excel_to_df_vava(file_path):
 
     calon_db_df.at[0,'Variant_Record']
     duplicate_rows_specific = calon_db_df[calon_db_df.duplicated(['Variant_Record'])]
-    print(duplicate_rows_specific)
+    #print(duplicate_rows_specific)
 
     final_column_name = {
         'Nucleotide [AAchange]':'Variant',
@@ -57,9 +57,10 @@ def convert_excel_to_df_vava(file_path):
         'Variant Type':'Variant_Type',
         'P/LP_Result':'P_LP_Result'
     }
-    calon_db_df.rename(columns=final_column_name, inplace=True)    
+    calon_db_df.rename(columns=final_column_name, inplace=True)
+    calon_db_df_unique = calon_db_df.drop_duplicates(subset=['Variant_Record'], keep='first')    
 
-    return calon_db_df
+    return calon_db_df_unique
 
 
 

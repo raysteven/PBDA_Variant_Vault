@@ -24,8 +24,8 @@ import sqlite3
 from sqlalchemy import text
 
 
-from variables import vava_db_dir, database_file_tshc, variant_table, version_history_table
-
+from variables import vava_db_dir, database_file_tshc, database_file_brcas , variant_table, version_history_table
+from excel_to_sqldb import convert_excel_to_df_vava
 
 user = 'admin'
 
@@ -128,11 +128,11 @@ def get_main_table(df):
     }    
     
     main_table = dag.AgGrid(
-        id="grid-filter-model-multiple-conditions",
+        id=f"main-table-{pgnum}",
         rowData=df.to_dict("records"),
         columnDefs=columnDefs,
         defaultColDef=defaultColDef,
-        columnSize="sizeToFit",
+        columnSize="autoSize",
         filterModel={},
         dashGridOptions={
                 "rowSelection": "multiple",
@@ -179,7 +179,8 @@ upload_rekap_excel = html.Div([
             'textAlign': 'center', 'margin': '10px', 'margin-left':'10px'
         },
         # Allow multiple files to be uploaded
-        multiple=False
+        multiple=False,
+        disabled=True
     ),
     
 ])
@@ -285,12 +286,13 @@ layout = dmc.AppShell(
                 
                 dmc.Grid(
                     children=[
+                        dcc.Store(id='store-output'),
                         dmc.GridCol(html.Div([
                             dmc.Title('1. Select Database', order=4),
                             html.P('Please select the database that you want to change.', style={'margin':0}),
                             dmc.Space(h=10),
                             dmc.SegmentedControl(
-                                id="database-selector",
+                                id=f"database-selector-{pgnum}",
                                 orientation="horizontal",
                                 fullWidth=False,
                                 data=[
@@ -310,11 +312,11 @@ layout = dmc.AppShell(
                             html.Div([
                                 upload_rekap_excel,
                                 html.Div([
-                                    dmc.Button('Upload File', id='upload-excel-btn'),#style=big_button_style  #{**button_style, **{"margin-left":"10px"}}
+                                    dmc.Button('Upload File', id=f'upload-excel-btn-{pgnum}', disabled=True),#style=big_button_style  #{**button_style, **{"margin-left":"10px"}}
                                     ], style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center', 'margin-top':'20px'}), #
                                 ], style={'margin-right':'30px'}),
                             ]), span=4),
-                            
+
                         dmc.Divider(orientation="vertical", variant="solid", size="xs", color="grey", style={"height": 750}),
 
                         dmc.GridCol(html.Div([
@@ -324,7 +326,7 @@ layout = dmc.AppShell(
                                 main_table,
                                 ], style={'margin-right':'30px'}),
                             html.Div([
-                                dmc.Button('Save Changes', id='save-changes-btn'),#style=big_button_style  #{**button_style, **{"margin-left":"10px"}}
+                                dmc.Button('Save Changes', id=f'save-changes-btn-{pgnum}', disabled=True),#style=big_button_style  #{**button_style, **{"margin-left":"10px"}}
                                 ], style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center', 'margin-top':'20px'}), #
 
                             ], style={'margin-left':'30px'}), span=4),
@@ -336,15 +338,26 @@ layout = dmc.AppShell(
 
 )
 
-
-
+@callback(
+    Output(f'upload-rekap-excel{pgnum}', 'disabled'),
+    Output(f'upload-excel-btn-{pgnum}', 'disabled'),
+    [Input(f'database-selector-{pgnum}','value')],
+    #allow_duplicate=True
+)
+def database_selection(database_selector_value):
+    print('database_selector_value',database_selector_value)
+    if database_selector_value == '-' or database_selector_value == None:
+        return True, True
+    else:
+        return False, False
 
 @callback(
     Output(f'upload-rekap-excel{pgnum}', 'children'),
+    Output(f'upload-excel-btn-{pgnum}', 'disabled', allow_duplicate=True),
     [Input(f'upload-rekap-excel{pgnum}', 'filename')],
     [State(f'upload-rekap-excel{pgnum}', 'contents'),
-     Input('database-selector','value')],
-    allow_duplicate=True
+     Input(f'database-selector-{pgnum}','value')],
+     prevent_initial_call=True
 )
 def update_rekap_excel(rekap_filename, rekap_contents, database_selector_value):
     counteract_dict = {'TSHC':'BRCA12_Somatic','BRCA12_Somatic':'TSHC'}
@@ -353,32 +366,53 @@ def update_rekap_excel(rekap_filename, rekap_contents, database_selector_value):
         #print(rekap_filename)
         extension = '.xlsx'
         if extension not in rekap_filename:
-            return html.Div(['Please input XLSX file only!'], style={'backgroundColor': 'red', 'color': 'white'})
+            return html.Div(['Please input XLSX file only!'], style={'backgroundColor': 'red', 'color': 'white'}), True
         
         if database_selector_value == '-':
-            return html.Div(['Please select the appropriate database!'], style={'backgroundColor': 'red', 'color': 'white'})
+            return html.Div(['Please select the appropriate database!'], style={'backgroundColor': 'red', 'color': 'white'}), True
         
         if database_selector_value not in rekap_filename:
-            return html.Div([f'You have selected "{database_selector_value}", but you have uploaded "{counteract_dict[database_selector_value]}" excel file!'], style={'backgroundColor': 'red', 'color': 'white'})
+            return html.Div([f'You have selected "{database_selector_value}", but you have uploaded "{counteract_dict[database_selector_value]}" excel file!'], style={'backgroundColor': 'red', 'color': 'white'}), True
 
-        metadata_file_path = os.path.join(input_temp_dir, rekap_filename)
-        print('metadata_file_path:', metadata_file_path)
-        with open(metadata_file_path, 'wb') as f:
+        rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
+        print('rekap_file_path:', rekap_file_path)
+        with open(rekap_file_path, 'wb') as f:
             f.write(base64.b64decode(rekap_contents.split(",")[1]))
 
-        print('Upload success: {}'.format(metadata_file_path))
+        print('Upload success: {}'.format(rekap_file_path))
 
         # Check if the file contains a sheet named "ALL"
         try:
-            xls = pd.ExcelFile(metadata_file_path, engine='openpyxl')
+            xls = pd.ExcelFile(rekap_file_path, engine='openpyxl')
             if 'ALL' not in xls.sheet_names:
-                return html.Div(['The Excel file must contain a sheet named "ALL".'], style={'backgroundColor': 'red', 'color': 'white'})
+                return html.Div(['The Excel file must contain a sheet named "ALL".'], style={'backgroundColor': 'red', 'color': 'white'}), True
             xls.close()
         except Exception as e:
             print(f"Error reading the Excel file: {e}")
-            return html.Div(['Error reading the Excel file. Please ensure it is a valid XLSX file.'], style={'backgroundColor': 'red', 'color': 'white'})
+            return html.Div(['Error reading the Excel file. Please ensure it is a valid XLSX file.'], style={'backgroundColor': 'red', 'color': 'white'}), True
 
         # Return updated Upload components with file names and blue background
-        return html.Div([rekap_filename], style={'backgroundColor': '#1c7ed6', 'color': 'white'})
+        return html.Div([rekap_filename], style={'backgroundColor': '#1c7ed6', 'color': 'white'}), False
 
-    return html.Div(['Drag and Drop or ', html.A('Select Files')])
+    return html.Div(['Drag and Drop or ', html.A('Select Files')]), dash.no_update
+
+@callback(
+    Output(f'main-table-{pgnum}', 'rowData'),
+    Output(f'save-changes-btn-{pgnum}', 'disabled'),
+    Input(f'upload-excel-btn-{pgnum}','n_clicks'),
+    State(f'upload-rekap-excel{pgnum}', 'filename'),
+    prevent_initial_call=True
+)
+def preview_excel_rekap(n_clicks, rekap_filename):
+    if rekap_filename is not None:
+        print('n_clicks',n_clicks)
+        print('rekap_content',rekap_filename)
+        rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
+        df = convert_excel_to_df_vava(rekap_file_path)
+        #print(df)
+        rowData=df.to_dict("records")
+        return rowData, False
+    else:
+        print('n_clicks',n_clicks)
+        print('rekap_content',rekap_filename)        
+        return dash.no_update, dash.no_update
