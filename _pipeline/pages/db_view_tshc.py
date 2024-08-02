@@ -20,7 +20,7 @@ import sqlite3
 from sqlalchemy import text
 
 
-from variables import vava_db_dir, database_file, database_file_brcas, variant_table, version_history_table
+from variables import vava_db_dir, database_file_tshc, database_file_brcas, variant_table, version_history_table
 
 
 user = 'admin'
@@ -74,7 +74,7 @@ input_temp_dir = os.path.join(os.getcwd(),'input_temp')
 #cur.execute("SELECT * FROM db_var")
 
 def read_data_from_database():
-    engine = create_engine(f'sqlite:///{vava_db_dir}/{database_file}')
+    engine = create_engine(f'sqlite:///{vava_db_dir}/{database_file_tshc}')
     query = f"SELECT * FROM {variant_table}"
     df = pd.read_sql(query, engine)
     return df

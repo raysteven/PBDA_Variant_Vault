@@ -25,7 +25,7 @@ from sqlalchemy import text
 
 import json
 
-from variables import vava_db_dir, database_file, database_file_brcas, variant_table, version_history_table
+from variables import vava_db_dir, database_file_tshc, database_file_brcas, variant_table, version_history_table
 from modify_db import process_log_entries
 
 user = 'admin'

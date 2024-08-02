@@ -71,7 +71,7 @@ app.layout = dmc.MantineProvider([
             html.Div([
                 html.Img(src='/assets/prodia-sulur.png', style={'height': '75px', 'marginRight': '15px'}),
                 html.Div([
-                    html.H4('Variant Vault', style={'display': 'inline-block', 'verticalAlign': 'middle', 'margin':'0', 'font-weight':'bold'}),
+                    html.H2('Variant Vault', style={'display': 'inline-block', 'verticalAlign': 'middle', 'margin':'0', 'font-weight':'bold'}),
                     html.P('Prodia Bioinformatics Dashboard Application (PBDA)', style={'margin':'0', 'font-weight':'bold'})
                 ], style={'display': 'inline-block', 'verticalAlign': 'middle'}),
             ], style={'display': 'flex', 'alignItems': 'center', 'flexGrow': '1'}), # This div will grow to take up available space

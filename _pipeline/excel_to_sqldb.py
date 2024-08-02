@@ -18,6 +18,49 @@ def generate_unique_id(data):
     
     return unique_id
 
+def convert_excel_to_df_vava(file_path):
+    
+    calon_db_df = pd.read_excel(file_path, engine='openpyxl')
+    try:
+        calon_db_df = calon_db_df.drop(columns='Unnamed: 0')
+        calon_db_df = calon_db_df.drop(columns='Nucleotide [AAchange].1')
+    except:
+        pass
+    calon_db_df.dropna(subset=['Rundate'], inplace=True)
+    calon_db_df.fillna(' ', inplace=True)
+
+    calon_db_df.rename(columns={'Disease_Name': 'Disease Name'}, inplace=True)
+    all_columns = calon_db_df.columns
+    desired_columns = ['Rundate','SampleID','Nucleotide [AAchange]', 'Clinical Relevance', 'Disease Name', 'Chromosome', 'dbSNP ID']
+    new_column_order = [col for col in desired_columns if col in all_columns] + [col for col in all_columns if col not in desired_columns]
+    calon_db_df = calon_db_df[new_column_order]
+
+
+    # Convert the 'Date' column to datetime format using the 'dayfirst' parameter
+    calon_db_df['Rundate'] = pd.to_datetime(calon_db_df['Rundate'], dayfirst=True, errors='coerce')
+
+    # Convert the datetime objects back to strings in the desired format
+    calon_db_df['Rundate'] = calon_db_df['Rundate'].dt.strftime('%Y/%m/%d')
+
+    calon_db_df['Variant_Record'] = calon_db_df.apply(lambda row: generate_unique_id(row['Rundate'] + ' | ' + row['SampleID'] + ' | ' + row['Nucleotide [AAchange]']), axis=1)
+
+
+    calon_db_df.at[0,'Variant_Record']
+    duplicate_rows_specific = calon_db_df[calon_db_df.duplicated(['Variant_Record'])]
+    print(duplicate_rows_specific)
+
+    final_column_name = {
+        'Nucleotide [AAchange]':'Variant',
+        'Clinical Relevance':'Clinical_Relevance',
+        'Disease Name':'Disease_Name',
+        'dbSNP ID':'dbSNP_ID',
+        'Variant Type':'Variant_Type',
+        'P/LP_Result':'P_LP_Result'
+    }
+    calon_db_df.rename(columns=final_column_name, inplace=True)    
+
+    return calon_db_df
+
 
 
 if __name__ == "__main__":
