@@ -18,9 +18,11 @@ from sqlalchemy import create_engine
 import sqlite3
 
 
-from variables import vava_db_dir, database_file, variant_table
+from variables import vava_db_dir, database_file_tshc, variant_table
 
+page_address = '/modify/rollback/'
 
+dash.register_page(__name__,path=page_address,name='PBDA: Variant Vault',title='PBDA: Variant Vault')
 
 pgnum = 3
 
@@ -64,7 +66,7 @@ parent_directory = os.path.dirname(current_directory)
 input_temp_dir = os.path.join(os.getcwd(),'input_temp')
 
 
-engine = create_engine(f'sqlite:///{vava_db_dir}/{database_file}')
+engine = create_engine(f'sqlite:///{vava_db_dir}/{database_file_tshc}')
 
 
 

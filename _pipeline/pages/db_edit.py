@@ -30,7 +30,7 @@ from modify_db import process_log_entries
 
 user = 'admin'
 
-page_address = '/database/edit/'
+page_address = '/modify/edit/'
 
 dash.register_page(__name__,path=page_address,name='PBDA: Variant Vault',title='PBDA: Variant Vault')
 
@@ -558,8 +558,8 @@ def display_change_log(*args):
     #print('-----')
 
     change_log = args[-1]
-    #print("change_log in def display_change_log")
-    #print(change_log)
+    print("change_log in def display_change_log")
+    print(change_log)
 
     ctx = dash.callback_context
     if not ctx.triggered:

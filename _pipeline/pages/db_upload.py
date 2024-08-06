@@ -9,7 +9,7 @@ import dash_ag_grid as dag
 
 
 import numpy as np
-
+from datetime import datetime
 import base64
 import os
 import shutil  # For file copying
@@ -33,7 +33,7 @@ user = 'admin'
 pgnum = 2
 
 
-page_address = '/database/upload/'
+page_address = '/modify/upload/'
 
 dash.register_page(__name__,path=page_address,name='PBDA: Variant Vault',title='PBDA: Variant Vault')
 
@@ -158,8 +158,35 @@ columns = [
     "alt_count", "ref_count", "DP", "P_LP_Result", "Mode_of_Inheritance", "Variant_Record"
 ]
 
+empty_df = [
+            {'Rundate':None},
+            {'SampleID':None},
+            {'Variant':None},
+            {'Clinical_Relevance':None},
+            {'Disease_Name':None},
+            {'Chromosome':None},
+            {'dbSNP_ID':None},
+            {'Gene':None},
+            {'Start':None},
+            {'End':None},
+            {'Ref':None},
+            {'Alt':None},
+            {'Variant_Type':None},
+            {'Variant_Classification':None},
+            {'VAF':None},
+            {'Genotype':None},
+            {'alt_count':None},
+            {'ref_count':None},
+            {'DP':None},
+            {'P_LP_Result':None},
+            {'Mode_of_Inheritance':None},
+            {'Variant_Record':None}
+            ]
+
 
 df = pd.DataFrame(data=np.nan, index=range(10), columns=columns)
+
+
 
 #df = read_data_from_database()
 
@@ -185,6 +212,74 @@ upload_rekap_excel = html.Div([
     
 ])
 
+scrollable_markdown = {
+            'height': '200px',        # Set the desired height
+            'overflowY': 'scroll',    # Enable vertical scrolling
+            'overflowX': 'auto',      # Enable horizontal scrolling if needed
+            'border': '1px solid #ccc', # Optional: add a border for better visibility
+            'padding': '10px'         # Optional: add some padding for better readability
+        }
+
+def get_save_changes_modal():
+
+    save_changes_modal = html.Div([
+            html.Button('Save Changes!', id=f'save-changes-button-{pgnum}',n_clicks=0),
+                dmc.Modal(
+                    title=dmc.Text("Saving Changes to the SQLite Database",size='lg',fw=500),
+                    id=f"modal-simple-{pgnum}",
+                    size='55%',
+                    zIndex=10000,
+                    children=[
+                        dmc.Space(h=5),
+                        dmc.Text("Are you sure to submit the following change(s) to the SQLite Database?"),
+                        dmc.Space(h=10),
+                        dcc.Markdown(id=f'confirmation-change-log-{pgnum}',style=scrollable_markdown),
+                        dmc.Space(h=20),
+                        dmc.Group(
+                            [
+                                dmc.Button("Submit", id=f"modal-submit-button-{pgnum}"),
+                                dmc.Button(
+                                    "Close",
+                                    color="red",
+                                    variant="outline",
+                                    id=f"modal-close-button-{pgnum}",
+                                ),
+                            ],
+                            justify="flex-end",
+                        ),
+                    ])
+                ])
+
+    return save_changes_modal
+
+
+save_changes_modal_2 = html.Div([
+                        dmc.Button('Save Changes', id=f'save-changes-button-{pgnum}', disabled=True),#style=big_button_style  #{**button_style, **{"margin-left":"10px"}}
+                        dmc.Modal(
+                        title=dmc.Text("Saving Changes to the SQLite Database",size='lg',fw=500),
+                        id=f"modal-simple-{pgnum}",
+                        size='55%',
+                        zIndex=10000,
+                        children=[
+                            dmc.Space(h=5),
+                            dmc.Text("Are you sure to submit the following change(s) to the SQLite Database?"),
+                            dmc.Space(h=10),
+                            dcc.Markdown(id=f'confirmation-change-log-{pgnum}',style=scrollable_markdown),
+                            dmc.Space(h=20),
+                            dmc.Group(
+                                [
+                                    dmc.Button("Submit", id=f"modal-submit-button-{pgnum}"),
+                                    dmc.Button(
+                                        "Close",
+                                        color="red",
+                                        variant="outline",
+                                        id=f"modal-close-button-{pgnum}",
+                                    ),
+                                ],
+                                justify="flex-end",
+                            ),
+                        ])
+                    ], style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center', 'margin-top':'20px'}) #
 
 #filterable_columns = ['Rundate', 'SampleID', 'Variant', 'Clinical_Relevance', 'Disease_Name'] #, , , '''Gene'  'Nucleotide [AAchange]', 
 
@@ -278,7 +373,10 @@ layout = dmc.AppShell(
         #dmc.AppShellNavbar("Navbar"),
         #dmc.AppShellAside("Aside", withBorder=False),
         dmc.AppShellMain(children=[
-                
+                dcc.Location(id=f'page-url-{pgnum}', refresh=True),
+                dcc.Store(id=f'store-change-log-{pgnum}'),
+
+
                 dmc.Title('Upload Rekap', order=3),
                 dmc.Space(h=10),
                 dmc.Divider(variant="solid", size="sm", color="grey"),
@@ -325,10 +423,7 @@ layout = dmc.AppShell(
                             html.Div([
                                 main_table,
                                 ], style={'margin-right':'30px'}),
-                            html.Div([
-                                dmc.Button('Save Changes', id=f'save-changes-btn-{pgnum}', disabled=True),#style=big_button_style  #{**button_style, **{"margin-left":"10px"}}
-                                ], style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center', 'margin-top':'20px'}), #
-
+                            save_changes_modal_2
                             ], style={'margin-left':'30px'}), span=4),
                     ], grow=True 
                 ),
@@ -338,22 +433,25 @@ layout = dmc.AppShell(
 
 )
 
+
 @callback(
     Output(f'upload-rekap-excel{pgnum}', 'disabled'),
     Output(f'upload-excel-btn-{pgnum}', 'disabled'),
+    Output(f'main-table-{pgnum}', 'rowData'),
     [Input(f'database-selector-{pgnum}','value')],
     #allow_duplicate=True
 )
 def database_selection(database_selector_value):
     print('database_selector_value',database_selector_value)
     if database_selector_value == '-' or database_selector_value == None:
-        return True, True
+        return True, True, empty_df
     else:
-        return False, False
+        return False, False, empty_df
 
 @callback(
     Output(f'upload-rekap-excel{pgnum}', 'children'),
     Output(f'upload-excel-btn-{pgnum}', 'disabled', allow_duplicate=True),
+    Output(f'save-changes-button-{pgnum}', 'disabled', allow_duplicate=True),
     [Input(f'upload-rekap-excel{pgnum}', 'filename')],
     [State(f'upload-rekap-excel{pgnum}', 'contents'),
      Input(f'database-selector-{pgnum}','value')],
@@ -366,13 +464,13 @@ def update_rekap_excel(rekap_filename, rekap_contents, database_selector_value):
         #print(rekap_filename)
         extension = '.xlsx'
         if extension not in rekap_filename:
-            return html.Div(['Please input XLSX file only!'], style={'backgroundColor': 'red', 'color': 'white'}), True
+            return html.Div(['Please input XLSX file only!'], style={'backgroundColor': 'red', 'color': 'white'}), True, True
         
         if database_selector_value == '-':
-            return html.Div(['Please select the appropriate database!'], style={'backgroundColor': 'red', 'color': 'white'}), True
+            return html.Div(['Please select the appropriate database!'], style={'backgroundColor': 'red', 'color': 'white'}), True, True
         
         if database_selector_value not in rekap_filename:
-            return html.Div([f'You have selected "{database_selector_value}", but you have uploaded "{counteract_dict[database_selector_value]}" excel file!'], style={'backgroundColor': 'red', 'color': 'white'}), True
+            return html.Div([f'You have selected "{database_selector_value}", but you have uploaded "{counteract_dict[database_selector_value]}" excel file!'], style={'backgroundColor': 'red', 'color': 'white'}), True, True
 
         rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
         print('rekap_file_path:', rekap_file_path)
@@ -385,34 +483,94 @@ def update_rekap_excel(rekap_filename, rekap_contents, database_selector_value):
         try:
             xls = pd.ExcelFile(rekap_file_path, engine='openpyxl')
             if 'ALL' not in xls.sheet_names:
-                return html.Div(['The Excel file must contain a sheet named "ALL".'], style={'backgroundColor': 'red', 'color': 'white'}), True
+                return html.Div(['The Excel file must contain a sheet named "ALL".'], style={'backgroundColor': 'red', 'color': 'white'}), True, True
             xls.close()
         except Exception as e:
             print(f"Error reading the Excel file: {e}")
-            return html.Div(['Error reading the Excel file. Please ensure it is a valid XLSX file.'], style={'backgroundColor': 'red', 'color': 'white'}), True
+            return html.Div(['Error reading the Excel file. Please ensure it is a valid XLSX file.'], style={'backgroundColor': 'red', 'color': 'white'}), True, True
 
         # Return updated Upload components with file names and blue background
-        return html.Div([rekap_filename], style={'backgroundColor': '#1c7ed6', 'color': 'white'}), False
+        return html.Div([rekap_filename], style={'backgroundColor': '#1c7ed6', 'color': 'white'}), False, dash.no_update
 
-    return html.Div(['Drag and Drop or ', html.A('Select Files')]), dash.no_update
+    return html.Div(['Drag and Drop or ', html.A('Select Files')]), dash.no_update, dash.no_update
 
 @callback(
-    Output(f'main-table-{pgnum}', 'rowData'),
-    Output(f'save-changes-btn-{pgnum}', 'disabled'),
+    Output(f'main-table-{pgnum}', 'rowData', allow_duplicate=True),
+    Output(f'save-changes-button-{pgnum}', 'disabled'),
     Input(f'upload-excel-btn-{pgnum}','n_clicks'),
     State(f'upload-rekap-excel{pgnum}', 'filename'),
+    State(f'upload-excel-btn-{pgnum}','disabled'),
     prevent_initial_call=True
 )
-def preview_excel_rekap(n_clicks, rekap_filename):
-    if rekap_filename is not None:
-        print('n_clicks',n_clicks)
-        print('rekap_content',rekap_filename)
+def preview_excel_rekap(n_clicks, rekap_filename, state_upload_btn):
+    if rekap_filename is not None and state_upload_btn != True:
+        #print('n_clicks',n_clicks)
+        #print('rekap_content',rekap_filename)
         rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
         df = convert_excel_to_df_vava(rekap_file_path)
         #print(df)
         rowData=df.to_dict("records")
+        print('rowData', rowData)
         return rowData, False
     else:
         print('n_clicks',n_clicks)
-        print('rekap_content',rekap_filename)        
-        return dash.no_update, dash.no_update
+
+        print('empty_df', empty_df)
+        # print('rekap_content',rekap_filename)        
+        return empty_df, dash.no_update
+
+@callback(
+    Output(f'store-change-log-{pgnum}','data'),
+    Input(f"save-changes-button-{pgnum}", "n_clicks"),
+    State(f'upload-rekap-excel{pgnum}', 'filename'),
+    prevent_initial_call=True
+)
+def track_changes(*args):
+    change_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    
+    rekap_filename = args[-1]
+
+    rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
+    df = convert_excel_to_df_vava(rekap_file_path)
+
+    changes_list = {
+        change_time:{
+        "Variant Record": df.at[row, 'Variant_Record'],
+        "Changed Column": col,
+        "Previous Value": "No Previous Value (value added by Upload Rekap)",
+        "New Value": df.at[row, col]
+        }
+        for row, col in df
+    }
+
+    print(changes_list)
+
+    return 
+
+@callback(
+    Output(f"modal-simple-{pgnum}", "opened"),
+    Output(f'page-url-{pgnum}', 'href'),
+    Input(f"save-changes-button-{pgnum}", "n_clicks"),
+    Input(f"modal-close-button-{pgnum}", "n_clicks"),
+    Input(f"modal-submit-button-{pgnum}", "n_clicks"),
+    State(f"modal-simple-{pgnum}", "opened"),
+    prevent_initial_call=True,
+)
+def modal_demo(nc1, nc2, nc3, opened):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    if 'modal-submit-button' in button_id:
+        print('Submit Changes Button Pressed!!!')
+        print('Commiting Changes to the Database!!!')
+
+        #process_log_entries(DB_URI, log_entries)
+        #print(DB_URI, log_entries)
+
+        #print('Reloading the Database!!!')
+        #global layout
+        #layout = get_layout()
+        return not opened, page_address
+
+    return not opened, dash.no_update

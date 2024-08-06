@@ -175,8 +175,8 @@ def create_layout(app):
                             children=[
                                 dmc.AccordionControl(
                                     children=[
-                                        DashIconify(icon="tabler:cell", width=20, height=20),
-                                        " Amino Acid Panel"
+                                        DashIconify(icon="tabler:eye", width=20, height=20),
+                                        " View Database"
                                     ],
                                     styles={"root": text_style}
                                 ),
@@ -186,29 +186,29 @@ def create_layout(app):
                                             dmc.Button(
                                                 children=[
                                                     dmc.Group([
-                                                    DashIconify(icon="tabler:user-scan", width=20, height=20),
+                                                    DashIconify(icon="tabler:git-fork", width=20, height=20),
                                                     #dmc.Space(h=10),
-                                                    dmc.Text("Metadata")
+                                                    dmc.Text("TSHC")
                                                     ])
                                                 ],
                                                 styles={"root": text_style},
                                                 variant="subtle"
                                             ),
-                                            href="/amino_acid_panel/create_metadata_file"
+                                            href="/view/tshc"
                                         ),
                                         dcc.Link(
                                             dmc.Button(
                                                 children=[
                                                     dmc.Group([
-                                                    DashIconify(icon="tabler:clipboard-text", width=20, height=20),
+                                                    DashIconify(icon="tabler:body-scan", width=20, height=20),
                                                     #dmc.Space(h=10),
-                                                    dmc.Text("Final Report")
+                                                    dmc.Text("BRCA12 Somatic")
                                                     ])
                                                 ],
                                                 styles={"root": text_style},
                                                 variant="subtle"
                                             ),
-                                            href="/amino_acid_panel/create_final_report"
+                                            href="/view/brcas"
                                         ),                                              
                                     ]
                                 )
@@ -216,57 +216,71 @@ def create_layout(app):
                         )
                     ]
                 ),
-                # ### Code For Cortisol
-                # '''
-                # dmc.Accordion(
-                #     children=[
-                #         dmc.AccordionItem(
-                #             value="generate-files",
-                #             children=[
-                #                 dmc.AccordionControl(
-                #                     children=[
-                #                         DashIconify(icon="tabler:chart-histogram", width=20, height=20),
-                #                         " Cortisol"
-                #                     ],
-                #                     styles={"root": text_style}
-                #                 ),
-                #                 dmc.AccordionPanel(
-                #                     [
-                #                         dcc.Link(
-                #                             dmc.Button(
-                #                                 children=[
-                #                                     dmc.Group([
-                #                                     DashIconify(icon="tabler:user-scan", width=20, height=20),
-                #                                     #dmc.Space(h=10),
-                #                                     dmc.Text("Metadata")
-                #                                     ])
-                #                                 ],
-                #                                 styles={"root": text_style},
-                #                                 variant="subtle"
-                #                             ),
-                #                             href="/generate/metadata-file"
-                #                         ),
-                #                         dcc.Link(
-                #                             dmc.Button(
-                #                                 children=[
-                #                                     dmc.Group([
-                #                                     DashIconify(icon="tabler:clipboard-text", width=20, height=20),
-                #                                     #dmc.Space(h=10),
-                #                                     dmc.Text("Final Report")
-                #                                     ])
-                #                                 ],
-                #                                 styles={"root": text_style},
-                #                                 variant="subtle"
-                #                             ),
-                #                             href="/generate/final-report"
-                #                         ),                                              
-                #                     ]
-                #                 )
-                #             ],
-                #         )
-                #     ]
-                # ),'''
-                # ###
+                ### Code For Cortisol
+                
+                dmc.Accordion(
+                    children=[
+                        dmc.AccordionItem(
+                            value="generate-files",
+                            children=[
+                                dmc.AccordionControl(
+                                    children=[
+                                        DashIconify(icon="tabler:database-edit", width=20, height=20),
+                                        " Modify Database"
+                                    ],
+                                    styles={"root": text_style}
+                                ),
+                                dmc.AccordionPanel(
+                                    [
+                                        dcc.Link(
+                                            dmc.Button(
+                                                children=[
+                                                    dmc.Group([
+                                                    DashIconify(icon="tabler:file-excel", width=20, height=20),
+                                                    #dmc.Space(h=10),
+                                                    dmc.Text("Upload Rekap")
+                                                    ])
+                                                ],
+                                                styles={"root": text_style},
+                                                variant="subtle"
+                                            ),
+                                            href="/modify/upload"
+                                        ),
+                                        dcc.Link(
+                                            dmc.Button(
+                                                children=[
+                                                    dmc.Group([
+                                                    DashIconify(icon="tabler:edit", width=20, height=20),
+                                                    #dmc.Space(h=10),
+                                                    dmc.Text("Edit")
+                                                    ])
+                                                ],
+                                                styles={"root": text_style},
+                                                variant="subtle"
+                                            ),
+                                            href="/modify/edit"
+                                        ),
+                                        dcc.Link(
+                                            dmc.Button(
+                                                children=[
+                                                    dmc.Group([
+                                                    DashIconify(icon="tabler:restore", width=20, height=20),
+                                                    #dmc.Space(h=10),
+                                                    dmc.Text("Rollback")
+                                                    ])
+                                                ],
+                                                styles={"root": text_style},
+                                                variant="subtle"
+                                            ),
+                                            href="/modify/rollback"
+                                        ),                                                 
+                                    ]
+                                )
+                            ],
+                        )
+                    ]
+                ),
+                ###
             ]
         ),
     ],
