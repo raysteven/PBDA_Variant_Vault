@@ -497,6 +497,7 @@ def update_rekap_excel(rekap_filename, rekap_contents, database_selector_value):
 @callback(
     Output(f'main-table-{pgnum}', 'rowData', allow_duplicate=True),
     Output(f'save-changes-button-{pgnum}', 'disabled'),
+    Output(f'store-change-log-{pgnum}','data'),
     Input(f'upload-excel-btn-{pgnum}','n_clicks'),
     State(f'upload-rekap-excel{pgnum}', 'filename'),
     State(f'upload-excel-btn-{pgnum}','disabled'),
@@ -511,41 +512,58 @@ def preview_excel_rekap(n_clicks, rekap_filename, state_upload_btn):
         #print(df)
         rowData=df.to_dict("records")
         print('rowData', rowData)
-        return rowData, False
+
+        change_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        changes_list = {
+            change_time:{
+            "Variant Record": df.at[row, 'Variant_Record'],
+            "Changed Column": col,
+            "Previous Value": "No Previous Value (value added by Upload Rekap)",
+            "New Value": df.at[row, col]
+            }
+            for row in df.index
+            for col in df.columns
+        }
+
+        print('changes_list', changes_list)
+
+        return rowData, False, changes_list
     else:
         print('n_clicks',n_clicks)
 
         print('empty_df', empty_df)
         # print('rekap_content',rekap_filename)        
-        return empty_df, dash.no_update
+        return empty_df, dash.no_update, dash.no_update
 
-@callback(
-    Output(f'store-change-log-{pgnum}','data'),
-    Input(f"save-changes-button-{pgnum}", "n_clicks"),
-    State(f'upload-rekap-excel{pgnum}', 'filename'),
-    prevent_initial_call=True
-)
-def track_changes(*args):
-    change_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+# @callback(
     
-    rekap_filename = args[-1]
+#     Input(f"save-changes-button-{pgnum}", "n_clicks"),
+#     State(f'upload-rekap-excel{pgnum}', 'filename'),
+#     prevent_initial_call=True
+# )
+# def track_changes(*args):
+    
+    
+#     rekap_filename = args[-1]
 
-    rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
-    df = convert_excel_to_df_vava(rekap_file_path)
+#     rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
+#     df = convert_excel_to_df_vava(rekap_file_path)
 
-    changes_list = {
-        change_time:{
-        "Variant Record": df.at[row, 'Variant_Record'],
-        "Changed Column": col,
-        "Previous Value": "No Previous Value (value added by Upload Rekap)",
-        "New Value": df.at[row, col]
-        }
-        for row, col in df
-    }
+#     changes_list = {
+#         change_time:{
+#         "Variant Record": df.at[row, 'Variant_Record'],
+#         "Changed Column": col,
+#         "Previous Value": "No Previous Value (value added by Upload Rekap)",
+#         "New Value": df.at[row, col]
+#         }
+#         for row in df.index
+#         for col in df.columns
+#     }
 
-    print('changes_list',changes_list)
+#     print('changes_list',changes_list)
 
-    return 
+#     return 
 
 @callback(
     Output(f"modal-simple-{pgnum}", "opened"),
