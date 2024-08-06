@@ -523,7 +523,6 @@ def preview_excel_rekap(n_clicks, rekap_filename, state_upload_btn):
     Output(f'store-change-log-{pgnum}','data'),
     Input(f"save-changes-button-{pgnum}", "n_clicks"),
     State(f'upload-rekap-excel{pgnum}', 'filename'),
-    prevent_initial_call=True
 )
 def track_changes(*args):
     change_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -543,7 +542,7 @@ def track_changes(*args):
         for row, col in df
     }
 
-    print(changes_list)
+    print('changes_list',changes_list)
 
     return 
 
