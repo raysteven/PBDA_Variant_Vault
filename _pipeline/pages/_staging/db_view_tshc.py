@@ -20,7 +20,7 @@ import sqlite3
 from sqlalchemy import text
 
 
-from variables import vava_db_dir, database_file, database_file_brcas, variant_table, version_history_table
+from variables import vava_db_dir, database_file_tshc, database_file_brcas, variant_table, version_history_table
 
 
 user = 'admin'
@@ -74,7 +74,7 @@ input_temp_dir = os.path.join(os.getcwd(),'input_temp')
 #cur.execute("SELECT * FROM db_var")
 
 def read_data_from_database():
-    engine = create_engine(f'sqlite:///{vava_db_dir}/{database_file}')
+    engine = create_engine(f'sqlite:///{vava_db_dir}/{database_file_tshc}')
     query = f"SELECT * FROM {variant_table}"
     df = pd.read_sql(query, engine)
     return df
@@ -106,7 +106,7 @@ upload_rekap_excel = html.Div([
 filterable_columns = ['Rundate', 'SampleID', 'Variant', 'Clinical_Relevance','Gene','dbSNP_ID','Chromosome','Disease_Name'] #, , , '''Gene'  'Nucleotide [AAchange]', 
 
 dropdowns = [dcc.Dropdown(
-                id=f'filter-dropdown-{pgnum}-{col}',
+                id=f'filter-dropdown-{col}',
                 options=[{'label': i, 'value': i} for i in sorted(df[col].unique())],
                 multi=True,
                 placeholder=f'{col}',
@@ -135,7 +135,7 @@ sidebar_filters = html.Div([
     html.Div([
         html.P(f"{col}", style={'font-style':'italic'}), #className="lead"
         dcc.Dropdown(
-            id=f'filter-dropdown-{pgnum}-{col}',
+            id=f'filter-dropdown-{col}',
             options=unique_sorted_options[col],
             #options = [{'label': i, 'value': i} for i in sorted(df[col].unique())],
             multi=True,
@@ -149,7 +149,7 @@ main_table = dash_table.DataTable(
                 id=f'editable-table-{pgnum}',
                 columns=[{"name": i, "id": i} for i in df.columns if i != "Variant_Record"],
                 data=df.iloc[:rows_per_page].to_dict('records'),
-                editable=True,
+                editable=False,
                 style_table={
                     'minWidth': '100%',
                     'overflowX': 'auto'  # Ensures horizontal scrolling if necessary
@@ -273,43 +273,58 @@ def hide_loading_after_startup(loading_state, children):
     print("spinner already gone!")
     raise PreventUpdate
 
-
 @callback(
-    [Output(f'filter-dropdown-{pgnum}-{col}', 'options') for col in filterable_columns] +
+    #Output(f'editable-table-{pgnum}', 'data'),
     [Output(f'editable-table-{pgnum}', 'data'),
-     Output(f'pagination-info-{pgnum}', 'children')],
-    [Input(f'filter-dropdown-{pgnum}-{col}', 'value') for col in filterable_columns] +
+    Output(f'pagination-info-{pgnum}', 'children')],
+    [Input(f'filter-dropdown-{col}', 'value') for col in filterable_columns] +
     [Input(f'editable-table-{pgnum}', "page_current"),
-     Input(f'editable-table-{pgnum}', "page_size")]
-)
-def update_table_and_filters(*args):
-    #global page_current
+    Input(f'editable-table-{pgnum}', "page_size")])
+def update_table(*args):
+    global page_current
 
-    filter_values = args[:len(filterable_columns)]
+    filter_values = args[:-3]
     page_current = args[-2]
     page_size = args[-1]
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    #global page_number
+    if 'filter-dropdown' in button_id:
+        page_current = 0  # Reset to the first page on filter change
 
     # Filter the DataFrame based on selected values for each dropdown
     filtered_df = df
     for filter_val, col in zip(filter_values, filterable_columns):
         if filter_val:  # If any value is selected
             filtered_df = filtered_df[filtered_df[col].isin(filter_val)]
-    
-    # Update options for each dropdown based on the filtered DataFrame
-    updated_options = [
-        [{'label': i, 'value': i} for i in sorted(filtered_df[col].unique())]
-        for col in filterable_columns
-    ]
-
-    # Update the table data
-    displayed_data_df = filtered_df.iloc[page_current * page_size:(page_current + 1) * page_size]
+    displayed_data_df = filtered_df.iloc[page_current*page_size:(page_current+ 1)*page_size]
     displayed_table = displayed_data_df.to_dict('records')
 
-    start_index = (page_current * page_size) + 1
-    end_index = min((page_current + 1) * page_size, len(filtered_df))
-    pagination_info = f"Entry: {start_index}-{end_index} of {len(filtered_df)}"
 
-    return updated_options + [displayed_table, pagination_info]
+    #_page_current = min(len(filtered_df), ((page_current+1) * page_size))
+    
+    start_index = (page_current+1) * page_size
+    if start_index <= len(filtered_df):
+        start_index = (page_current) * page_size
+        d_start_index = start_index+1
+        end_index = start_index + page_size
+    elif start_index > len(filtered_df):
+        start_index = (page_current) * page_size
+        d_start_index = start_index+1
+        end_index =  len(filtered_df)
+    else:
+        start_index = 0 
+
+    
+
+    #displayed_data = filtered_df.iloc[start_index:end_index].to_dict('records')
+    #pagination_info = f"Page {page_number}, Rows {start_index + 1}-{min(end_index, len(filtered_df))} of {len(filtered_df)}"
+    pagination_info = f"Entry: {min(d_start_index, len(filtered_df))}-{min(end_index, len(filtered_df))} of {len(filtered_df)}"
+    return displayed_table, pagination_info
 
 
 @callback(
@@ -338,7 +353,7 @@ def update_rekap_excel(excel_input_filename, excel_input_contents):
     [Input(f'editable-table-{pgnum}', 'active_cell'), Input(f'editable-table-{pgnum}', 'data')],
     #[State('store-original-data', 'data')]
 )
-def update_store(active_cell, current_data): #original_data
+def update_store(active_cell, current_data, ): #original_data
     ctx = dash.callback_context
     if not ctx.triggered:
         input_id = 'No clicks yet'

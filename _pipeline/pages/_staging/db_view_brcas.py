@@ -24,7 +24,7 @@ from sqlalchemy import text
 
 import json
 
-from variables import vava_db_dir, database_file, database_file_brcas, variant_table, version_history_table
+from variables import vava_db_dir, database_file_tshc, database_file_brcas, variant_table, version_history_table
 
 
 user = 'admin'
@@ -80,11 +80,11 @@ def read_data_from_database():
     engine = create_engine(f'sqlite:///{vava_db_dir}/{database_file_brcas}')
     query = f"SELECT * FROM {variant_table}"
     df = pd.read_sql(query, engine)
+    #df.set_index('Variant_Record', inplace=True)
     return df
 
 df = read_data_from_database()
 initial_df = copy.deepcopy(df)
-
 
 page_number = 1
 rows_per_page = 10
@@ -176,7 +176,7 @@ main_table = dash_table.DataTable(
                     # Apply custom minWidth for specific columns here if needed
                     # Example:
                      {'if': {'column_id': 'Variant'},
-                      'minWidth': '150px', 'width': '150px', 'maxWidth': '250px'},
+                      'minWidth': '250px',  'maxWidth': '550px'},
                 ],
                 fixed_columns={'headers': True, 'data': 3},
                 page_current=0,
@@ -227,7 +227,9 @@ layout = html.Div(
                                             html.P('Variant Database' , className="lead", style={'margin-bottom':'0px'}),
                                             pagination_info,
                                             main_table,
+                                            html.Div(id=f'store-selected-cell-{pgnum}', style={'white-space': 'pre-line'}),
                                             dcc.Store(id=f'editable-table-data-store-{pgnum}'),
+                                            
 
                                         ]),
 
@@ -348,9 +350,42 @@ def store_table_edits(timestamp, table_data, stored_data):
     return stored_data
 
 
+@callback(
+    Output(f'store-selected-cell-{pgnum}', 'children'),
+    [Input(f'editable-table-{pgnum}', 'active_cell'), Input(f'editable-table-{pgnum}', 'data')],
+    #[State('store-original-data', 'data')]
+)
+def update_cell_selector(active_cell, current_data): #original_data
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        input_id = 'No clicks yet'
+    else:
+        input_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if active_cell:
+        try:
+            row = active_cell['row']
+            column_id = active_cell['column_id']
+            #selected_value = current_data[row][column_id]
+            original_value = current_data[row][column_id]
+            #edited = "Edited" if selected_value != original_value else "No Edit"
+            return_text_active_cell = f'''Variant Record  : {current_data[row]['Variant_Record']} \nSelected Column : {column_id}\nSelected Value  : {current_data[row][column_id]}\n '''
+            return return_text_active_cell
+        except:
+            return 'No Active Cell Selected'
+    else:
+        return 'No Active Cell Selected'
 
+'''
+{
+            'selected_index': current_data[row]['Variant_Record'],
+            'selected_column': column_id,
+            'original_value': original_value,
+            'selected_value': current_data[row][column_id]
+            #'edit_status': edited
+        }
 
-
+'''
 
 '''
 

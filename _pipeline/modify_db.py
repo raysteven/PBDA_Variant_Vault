@@ -1,7 +1,7 @@
-# database_updates.py
 from sqlalchemy import create_engine, Column, String, Integer, Text, ForeignKey, TIMESTAMP, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import pandas as pd
 
 # Create a base class
 Base = declarative_base()
@@ -79,5 +79,43 @@ def process_log_entries(db_uri, log_entries):
             )
             session.add(version_history_entry)
             #session.commit()
+    session.commit()
+    session.close()
+
+# Function to append dataframe to the db_var table
+def process_df(db_uri, df):
+    session_factory = init_db(db_uri)
+    session = session_factory()
+
+    # Replace null values with empty strings
+    df = df.fillna(" ")
+
+    for index, row in df.iterrows():
+        db_var_entry = DbVar(
+            Rundate=row.get('Rundate', " "),
+            SampleID=row.get('SampleID', " "),
+            Variant=row.get('Variant', " "),
+            Clinical_Relevance=row.get('Clinical_Relevance', " "),
+            Disease_Name=row.get('Disease_Name', " "),
+            Chromosome=row.get('Chromosome', " "),
+            dbSNP_ID=row.get('dbSNP_ID', " "),
+            Gene=row.get('Gene', " "),
+            Start=row.get('Start', " "),
+            End=row.get('End', " "),
+            Ref=row.get('Ref', " "),
+            Alt=row.get('Alt', " "),
+            Variant_Type=row.get('Variant_Type', " "),
+            Variant_Classification=row.get('Variant_Classification', " "),
+            VAF=row.get('VAF', " "),
+            Genotype=row.get('Genotype', " "),
+            alt_count=row.get('alt_count', " "),
+            ref_count=row.get('ref_count', " "),
+            DP=row.get('DP', " "),
+            P_LP_Result=row.get('P_LP_Result', " "),
+            Mode_of_Inheritance=row.get('Mode_of_Inheritance', " "),
+            Variant_Record=row.get('Variant_Record', " ")
+        )
+        session.add(db_var_entry)
+
     session.commit()
     session.close()

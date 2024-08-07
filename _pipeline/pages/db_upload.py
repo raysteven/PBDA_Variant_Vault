@@ -26,7 +26,7 @@ from sqlalchemy import text
 
 from variables import vava_db_dir, database_file_tshc, database_file_brcas , variant_table, version_history_table
 from excel_to_sqldb import convert_excel_to_df_vava
-from modify_db import process_log_entries
+from modify_db import process_log_entries, process_df
 
 user = 'admin'
 
@@ -641,16 +641,56 @@ def modal_demo(nc1, nc2, nc3, opened, database_selector_value, change_log,rekap_
         print("database_file_name:", database_file_name)
         
         DB_URI = f'sqlite:///{vava_db_dir}/{database_file_name}'
-
-        ## Writing Changes to SQL DB
-        conn = sqlite3.connect(DB_URI)
-        cursor = conn.cursor()
         rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
         df = convert_excel_to_df_vava(rekap_file_path)
-        df.to_sql(variant_table, conn, if_exists='append', index=False, method='multi', chunksize=500)
-        conn.close()
-        
+        df.fillna('null', inplace=True)
+        print(df)
+        num_rows, num_cols = df.shape
+        # Iterate over rows and columns
+        for i in range(num_rows):
+            for j in range(num_cols):
+                print(f"Row {i+1}, Column {j+1}: {df.iloc[i, j]}")
+        # ## Writing Changes to SQL DB
+        # try:
+        #     rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
+        #         # SQL statement for creating a table
+        #     create_table_sql1 = f"""
+        #     CREATE TABLE IF NOT EXISTS {variant_table} (
+        #         `Rundate` TEXT,
+        #         `SampleID` TEXT,
+        #         `Variant` TEXT,
+        #         `Clinical_Relevance` TEXT,
+        #         `Disease_Name` TEXT,
+        #         `Chromosome` TEXT,
+        #         `dbSNP_ID` TEXT,
+        #         `Gene` TEXT,
+        #         `Start` TEXT,
+        #         `End` TEXT,
+        #         `Ref` TEXT,
+        #         `Alt` TEXT,
+        #         `Variant_Type` TEXT,
+        #         `Variant_Classification` TEXT,
+        #         `VAF` TEXT,
+        #         `Genotype` TEXT,
+        #         `alt_count` TEXT,
+        #         `ref_count` TEXT,
+        #         `DP` TEXT,
+        #         `P_LP_Result` TEXT,
+        #         `Mode_of_Inheritance` TEXT,
+        #         `Variant_Record` TEXT PRIMARY KEY
+        #     );
+        #     """
+        #     conn = sqlite3.connect(DB_URI)
+        #     cursor = conn.cursor()
+        #     cursor.execute(create_table_sql1)
+            
+        #     df = convert_excel_to_df_vava(rekap_file_path)
+        #     df.to_sql(variant_table, conn, if_exists='append', index=False, method='multi', chunksize=500)
+        #     conn.close()
+        # except sqlite3.OperationalError as e:
+        #     print(f"SQLite error: {e}")
 
+        process_df(DB_URI, df)
         process_log_entries(DB_URI, change_log)
         print(DB_URI, change_log)
 
