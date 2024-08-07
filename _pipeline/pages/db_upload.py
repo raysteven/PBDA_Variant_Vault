@@ -26,6 +26,7 @@ from sqlalchemy import text
 
 from variables import vava_db_dir, database_file_tshc, database_file_brcas , variant_table, version_history_table
 from excel_to_sqldb import convert_excel_to_df_vava
+from modify_db import process_log_entries
 
 user = 'admin'
 
@@ -498,6 +499,7 @@ def update_rekap_excel(rekap_filename, rekap_contents, database_selector_value):
     Output(f'main-table-{pgnum}', 'rowData', allow_duplicate=True),
     Output(f'save-changes-button-{pgnum}', 'disabled'),
     Output(f'confirmation-change-log-{pgnum}','children', allow_duplicate=True),
+    Output(f'store-change-log-{pgnum}','children'),
     Input(f'upload-excel-btn-{pgnum}','n_clicks'),
     State(f'upload-rekap-excel{pgnum}', 'filename'),
     State(f'upload-excel-btn-{pgnum}','disabled'),
@@ -514,6 +516,8 @@ def preview_excel_rekap(n_clicks, rekap_filename, state_upload_btn):
         #print('rowData', rowData)
 
         #change_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        print('Total Number of New Entry that will be added:',df.index)
 
         change_log = [
             {
@@ -542,25 +546,39 @@ def preview_excel_rekap(n_clicks, rekap_filename, state_upload_btn):
         for key, value in change_log_item.items()
         ]
 
+        rows, columns = df.shape
+        print('Total Number of New Entry that will be added:',rows)
+        print('Total Number of Changes that will be added:', rows*columns)
+
+        total_changes_count_display = [
+        f"""
+            **Total Changes**
+            * Total Number of New Entry that will be added: {rows}
+            * Total Number of Changes that will be added: {rows*columns}
+        """
+        ]
+
+        displayed_change_log = total_changes_count_display + displayed_change_log
 
         #print('changes_list', change_log)
         #print('displayed_change_log', displayed_change_log)
+        #print(change_log)
 
-        return rowData, False, displayed_change_log
+        return rowData, False, displayed_change_log, change_log
     else:
         #print('n_clicks',n_clicks)
 
         #print('empty_df', empty_df)
         # print('rekap_content',rekap_filename)        
-        return empty_df, dash.no_update, dash.no_update
+        return empty_df, dash.no_update, dash.no_update, dash.no_update
     
-@callback(
-    Output(f'confirmation-change-log-{pgnum}','children'),
-    Input(f'store-change-log-{pgnum}', 'children')
-)
-def display_change_log_confirmation(displayed_change_log):
-    print(displayed_change_log)
-    return displayed_change_log
+# @callback(
+#     Output(f'confirmation-change-log-{pgnum}','children'),
+#     Input(f'store-change-log-{pgnum}', 'children')
+# )
+# def display_change_log_confirmation(displayed_change_log):
+#     print(displayed_change_log)
+#     return displayed_change_log
 
 # @callback(
     
@@ -598,19 +616,43 @@ def display_change_log_confirmation(displayed_change_log):
     Input(f"modal-close-button-{pgnum}", "n_clicks"),
     Input(f"modal-submit-button-{pgnum}", "n_clicks"),
     State(f"modal-simple-{pgnum}", "opened"),
+    State(f"database-selector-{pgnum}","value"),
+    State(f'store-change-log-{pgnum}','children'),
+    State(f'upload-rekap-excel{pgnum}', 'filename'),
     prevent_initial_call=True,
 )
-def modal_demo(nc1, nc2, nc3, opened):
+def modal_demo(nc1, nc2, nc3, opened, database_selector_value, change_log,rekap_filename):
     ctx = dash.callback_context
     if not ctx.triggered:
         raise PreventUpdate
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     if 'modal-submit-button' in button_id:
+        
+        db_select_dict = {
+            'TSHC':database_file_tshc,
+            'BRCA12_Somatic':database_file_brcas
+        }
+
+        database_file_name = db_select_dict[database_selector_value]
+
         print('Submit Changes Button Pressed!!!')
         print('Commiting Changes to the Database!!!')
+        print("vava_db_dir:", vava_db_dir)
+        print("database_file_name:", database_file_name)
+        
+        DB_URI = f'sqlite:///{vava_db_dir}/{database_file_name}'
 
-        #process_log_entries(DB_URI, log_entries)
-        #print(DB_URI, log_entries)
+        ## Writing Changes to SQL DB
+        conn = sqlite3.connect(DB_URI)
+        cursor = conn.cursor()
+        rekap_file_path = os.path.join(input_temp_dir, rekap_filename)
+        df = convert_excel_to_df_vava(rekap_file_path)
+        df.to_sql(variant_table, conn, if_exists='append', index=False, method='multi', chunksize=500)
+        conn.close()
+        
+
+        process_log_entries(DB_URI, change_log)
+        print(DB_URI, change_log)
 
         #print('Reloading the Database!!!')
         #global layout
