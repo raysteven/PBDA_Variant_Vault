@@ -220,37 +220,37 @@ scrollable_markdown = {
             'padding': '10px'         # Optional: add some padding for better readability
         }
 
-def get_save_changes_modal():
+# def get_save_changes_modal():
 
-    save_changes_modal = html.Div([
-            html.Button('Save Changes!', id=f'save-changes-button-{pgnum}',n_clicks=0),
-                dmc.Modal(
-                    title=dmc.Text("Saving Changes to the SQLite Database",size='lg',fw=500),
-                    id=f"modal-simple-{pgnum}",
-                    size='55%',
-                    zIndex=10000,
-                    children=[
-                        dmc.Space(h=5),
-                        dmc.Text("Are you sure to submit the following change(s) to the SQLite Database?"),
-                        dmc.Space(h=10),
-                        dcc.Markdown(id=f'confirmation-change-log-{pgnum}',style=scrollable_markdown),
-                        dmc.Space(h=20),
-                        dmc.Group(
-                            [
-                                dmc.Button("Submit", id=f"modal-submit-button-{pgnum}"),
-                                dmc.Button(
-                                    "Close",
-                                    color="red",
-                                    variant="outline",
-                                    id=f"modal-close-button-{pgnum}",
-                                ),
-                            ],
-                            justify="flex-end",
-                        ),
-                    ])
-                ])
+#     save_changes_modal = html.Div([
+#             html.Button('Save Changes!', id=f'save-changes-button-{pgnum}',n_clicks=0),
+#                 dmc.Modal(
+#                     title=dmc.Text("Saving Changes to the SQLite Database",size='lg',fw=500),
+#                     id=f"modal-simple-{pgnum}",
+#                     size='55%',
+#                     zIndex=10000,
+#                     children=[
+#                         dmc.Space(h=5),
+#                         dmc.Text("Are you sure to submit the following change(s) to the SQLite Database?"),
+#                         dmc.Space(h=10),
+#                         dcc.Markdown(id=f'confirmation-change-log-{pgnum}',style=scrollable_markdown),
+#                         dmc.Space(h=20),
+#                         dmc.Group(
+#                             [
+#                                 dmc.Button("Submit", id=f"modal-submit-button-{pgnum}"),
+#                                 dmc.Button(
+#                                     "Close",
+#                                     color="red",
+#                                     variant="outline",
+#                                     id=f"modal-close-button-{pgnum}",
+#                                 ),
+#                             ],
+#                             justify="flex-end",
+#                         ),
+#                     ])
+#                 ])
 
-    return save_changes_modal
+#     return save_changes_modal
 
 
 save_changes_modal_2 = html.Div([
@@ -497,7 +497,7 @@ def update_rekap_excel(rekap_filename, rekap_contents, database_selector_value):
 @callback(
     Output(f'main-table-{pgnum}', 'rowData', allow_duplicate=True),
     Output(f'save-changes-button-{pgnum}', 'disabled'),
-    Output(f'store-change-log-{pgnum}','data'),
+    Output(f'confirmation-change-log-{pgnum}','children', allow_duplicate=True),
     Input(f'upload-excel-btn-{pgnum}','n_clicks'),
     State(f'upload-rekap-excel{pgnum}', 'filename'),
     State(f'upload-excel-btn-{pgnum}','disabled'),
@@ -511,30 +511,56 @@ def preview_excel_rekap(n_clicks, rekap_filename, state_upload_btn):
         df = convert_excel_to_df_vava(rekap_file_path)
         #print(df)
         rowData=df.to_dict("records")
-        print('rowData', rowData)
+        #print('rowData', rowData)
 
-        change_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        #change_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
 
-        changes_list = {
-            change_time:{
-            "Variant Record": df.at[row, 'Variant_Record'],
-            "Changed Column": col,
-            "Previous Value": "No Previous Value (value added by Upload Rekap)",
-            "New Value": df.at[row, col]
+        change_log = [
+            {
+                change_time: {
+                    "Variant Record": df.at[row, 'Variant_Record'],
+                    "Changed Column": col,
+                    "Previous Value": "No Previous Value (value added by Upload Rekap)",
+                    "New Value": df.at[row, col]
+                }
             }
             for row in df.index
             for col in df.columns
-        }
+            for change_time in [datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')]
+        ]
 
-        print('changes_list', changes_list)
 
-        return rowData, False, changes_list
+        displayed_change_log = [
+        f"""
+            **{key}** 
+            * Variant Record: {value['Variant Record']} 
+            * Changed Column: {value['Changed Column']} 
+            * Previous Value: {value['Previous Value']}
+            * New Value: {value['New Value']}
+        """
+        for change_log_item in change_log
+        for key, value in change_log_item.items()
+        ]
+
+
+        #print('changes_list', change_log)
+        #print('displayed_change_log', displayed_change_log)
+
+        return rowData, False, displayed_change_log
     else:
-        print('n_clicks',n_clicks)
+        #print('n_clicks',n_clicks)
 
-        print('empty_df', empty_df)
+        #print('empty_df', empty_df)
         # print('rekap_content',rekap_filename)        
         return empty_df, dash.no_update, dash.no_update
+    
+@callback(
+    Output(f'confirmation-change-log-{pgnum}','children'),
+    Input(f'store-change-log-{pgnum}', 'children')
+)
+def display_change_log_confirmation(displayed_change_log):
+    print(displayed_change_log)
+    return displayed_change_log
 
 # @callback(
     
