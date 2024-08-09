@@ -1,7 +1,12 @@
-from sqlalchemy import create_engine, Column, String, Integer, Text, ForeignKey, TIMESTAMP, func
+from sqlalchemy import create_engine, Column, String, Integer, Text, text, ForeignKey, TIMESTAMP, func, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
+
+
+# import pandas as pd
+# from sqlalchemy.orm import sessionmaker
+# from sqlalchemy import text
 
 # Create a base class
 Base = declarative_base()
@@ -119,3 +124,157 @@ def process_df(db_uri, df):
 
     session.commit()
     session.close()
+
+
+
+# def count_and_group(db_uri, table_name, count_col, group_col):
+#     # Initialize the database session
+#     session_factory = init_db(db_uri)
+#     session = session_factory()
+    
+#     # Retrieve column names from the table
+#     inspector = inspect(session.bind)
+#     columns = [col['name'] for col in inspector.get_columns(table_name)]
+    
+#     # Filter out the group_col and count_col
+#     selected_columns = [col for col in columns if col not in {group_col, count_col}]
+    
+#     # Create the SQL query string
+#     sql_query = f"""
+#     SELECT
+#         {group_col},
+#         COUNT(DISTINCT {count_col}) AS {count_col}_Count,
+#         {', '.join(selected_columns)}
+#     FROM {table_name}
+#     GROUP BY {group_col};
+#     """
+    
+#     # Execute the query and fetch all the results
+#     result = session.execute(text(sql_query))
+    
+#     # Convert the result to a pandas DataFrame
+#     df = pd.DataFrame(result.fetchall(), columns=result.keys())
+    
+#     # Close the session
+#     session.close()
+    
+#     return df
+
+
+###################################
+
+
+from sqlalchemy import create_engine, inspect, text
+import pandas as pd
+
+def count_and_group(db_uri, table_name, count_col, group_col):
+    # Initialize the database session
+    engine = create_engine(db_uri)
+    connection = engine.connect()
+    
+    # Retrieve column names from the table
+    inspector = inspect(engine)
+    columns = [col['name'] for col in inspector.get_columns(table_name)]
+    
+    # Filter out the group_col and count_col
+    other_columns = [col for col in columns if col not in {group_col, count_col}]
+    
+    # Find columns with the same value across all rows within each group
+    consistent_columns = []
+    for col in other_columns:
+        check_query = f"""
+        SELECT {group_col}, COUNT(DISTINCT {col})
+        FROM {table_name}
+        GROUP BY {group_col}
+        HAVING COUNT(DISTINCT {col}) = 1;
+        """
+        result = connection.execute(text(check_query))
+
+        print((result.rowcount))
+
+        if result.rowcount == len(connection.execute(text(f"SELECT DISTINCT {group_col} FROM {table_name}")).fetchall()):
+            consistent_columns.append(col)
+    
+    # Create the SQL query string
+    if consistent_columns:
+        sql_query = f"""
+        SELECT
+            {group_col},
+            COUNT(DISTINCT {count_col}) AS {count_col}_Count,
+            {', '.join(consistent_columns)}
+        FROM {table_name}
+        GROUP BY {group_col};
+        """
+    else:
+        sql_query = f"""
+        SELECT
+            {group_col},
+            COUNT(DISTINCT {count_col}) AS {count_col}_Count
+        FROM {table_name}
+        GROUP BY {group_col};
+        """
+    
+    # Execute the query and fetch all the results
+    result = connection.execute(text(sql_query))
+    
+    # Convert the result to a pandas DataFrame
+    df = pd.DataFrame(result.fetchall(), columns=result.keys())
+    
+    # Close the connection
+    connection.close()
+    
+    return df
+
+
+##############################
+
+
+# from sqlalchemy import create_engine, inspect, text
+# import pandas as pd
+
+# def count_and_group(db_uri, table_name, count_col, group_col):
+#     # Initialize the database session
+#     engine = create_engine(db_uri)
+#     connection = engine.connect()
+    
+#     # Retrieve column names from the table
+#     inspector = inspect(engine)
+#     columns = [col['name'] for col in inspector.get_columns(table_name)]
+    
+#     # Filter out the group_col and count_col
+#     other_columns = [col for col in columns if col not in {group_col, count_col}]
+    
+#     # Build the SQL query string
+#     case_statements = []
+#     for col in other_columns:
+#         case_statements.append(f"""
+#         GROUP_CON_CONCAT_DISTINCT({col}) AS {col}
+#         """)
+    
+#     case_statements.append(f"""
+#     COUNT(DISTINCT {count_col}) AS {count_col}_Count
+#     """)
+    
+#     sql_query = f"""
+#     WITH DistinctValues AS (
+#         SELECT {group_col}, {', '.join(f'DISTINCT {col} AS {col}_distinct' for col in other_columns)}
+#         FROM {table_name}
+#         GROUP BY {group_col}
+#     )
+#     SELECT
+#         {group_col},
+#         {', '.join(case_statements)}
+#     FROM DistinctValues
+#     GROUP BY {group_col};
+#     """
+    
+#     # Execute the query and fetch all the results
+#     result = connection.execute(text(sql_query))
+    
+#     # Convert the result to a pandas DataFrame
+#     df = pd.DataFrame(result.fetchall(), columns=result.keys())
+    
+#     # Close the connection
+#     connection.close()
+    
+#     return df

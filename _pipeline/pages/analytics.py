@@ -26,7 +26,7 @@ from sqlalchemy import text
 
 from variables import vava_db_dir, database_file_tshc, database_file_brcas , variant_table, version_history_table
 from excel_to_sqldb import convert_excel_to_df_vava
-from modify_db import process_log_entries, process_df
+from modify_db import process_log_entries, process_df, count_and_group
 
 user = 'admin'
 
@@ -113,15 +113,19 @@ columns_slider = [
 ]
 
 
-def get_main_table(df):
-    # columns = [
+def get_main_table_sql(df):
+    
+    
+    # columns_sql = [
     #     "Rundate", "SampleID", "Variant", "Clinical_Relevance", "Disease_Name",
     #     "Chromosome", "dbSNP_ID", "Gene", "Start", "End", "Ref", "Alt",
     #     "Variant_Type", "Variant_Classification", "VAF", "Genotype",
     #     "alt_count", "ref_count", "DP", "P_LP_Result", "Mode_of_Inheritance", "Variant_Record"
     # ]
 
-    columnDefs = [{"field": i,"width": 50, "maxWidth": 500} for i in columns]
+    # excluded 
+
+    columnDefs = [{"field": i,"width": 50, "maxWidth": 500} for i in df.columns.tolist()]
     # [
     #     {
     #     "field":"Rundate",
@@ -335,7 +339,7 @@ save_changes_modal_2 = html.Div([
 # ], style={'padding': '10px', 'margin-left':'5px'}) #'padding': '10px', 
 
 
-main_table = get_main_table(df)
+main_table = get_main_table_sql(df)
 
 # main_table = dash_table.DataTable(
 #                 id=f'editable-table-{pgnum}',
@@ -402,12 +406,36 @@ layout = dmc.AppShell(
                             dmc.Space(h=10),
                             
                             dmc.Group([
+                            
+                            # dmc.SegmentedControl(
+                            #     id=f"database-selector-{pgnum}",
+                            #     orientation="horizontal",
+                            #     fullWidth=False,
+                            #     #data = [{"value": "-", "label": "None"}] + [{"value": col, "label": col} for col in columns_slider],
+                            #     data=[
+                            #         {"value": "-", "label": "None"},
+                            #         {"value": "TSHC", "label": "TSHC"},
+                            #         {"value": "BRCA12_Somatic", "label": "BRCA12_Somatic"},
+                            #           ],
+                            #     radius='lg',
+                            #     color='blue'
+                            #     ),
+
+                                dmc.Select(
+                                    label="Database",
+                                    placeholder="Select one",
+                                    id=f"sql-database-selector-{pgnum}",
+                                    value="ng",
+                                    data=[{"value": col, "label": col} for col in ["TSHC","BRCA12_Somatic"]], #[{"value": "-", "label": "None"}] + 
+                                    w=200,
+                                    mb=10,
+                                    ),
                                 dmc.Select(
                                     label="Count",
                                     placeholder="Select one",
                                     id=f"sql-count-col-selector-{pgnum}",
                                     value="ng",
-                                    data=[{"value": "-", "label": "None"}] + [{"value": col, "label": col} for col in columns_slider],
+                                    data=[{"value": col, "label": col} for col in columns_slider], #[{"value": "-", "label": "None"}] + 
                                     w=200,
                                     mb=10,
                                     ),
@@ -416,12 +444,11 @@ layout = dmc.AppShell(
                                     placeholder="Select one",
                                     id=f"sql-group-col-selector-{pgnum}",
                                     value="ng",
-                                    data=[{"value": "-", "label": "None"}] + [{"value": col, "label": col} for col in columns_slider],
+                                    data=[{"value": col, "label": col} for col in columns_slider], #[{"value": "-", "label": "None"}] + 
                                     w=200,
                                     mb=10,
                                     ),
                             ]),
-
 
 
 
@@ -459,10 +486,9 @@ layout = dmc.AppShell(
                             dmc.Divider(variant="solid", size="xs", color="grey"),
                             dmc.Space(h=20),
 
-                            dmc.Title('SQL Table View', order=4),
-                            html.Div([
-                                main_table,
-                                ], style={'margin-right':'30px'}),
+                            dmc.Title('Table View', order=4),
+                            html.Div(id=f"div-main-table-{pgnum}",children=[
+                                main_table],style={'margin-right':'30px'}),
                             ]), span=4),
 
                         dmc.Divider(orientation="vertical", variant="solid", size="xs", color="grey", style={"height": 770}),
@@ -483,20 +509,53 @@ layout = dmc.AppShell(
 
 )
 
-
 @callback(
-    Output(f'upload-rekap-excel{pgnum}', 'disabled'),
-    Output(f'upload-excel-btn-{pgnum}', 'disabled'),
-    Output(f'main-table-{pgnum}', 'rowData'),
-    [Input(f'database-selector-{pgnum}','value')],
-    #allow_duplicate=True
+    Output(f"div-main-table-{pgnum}","children"),
+    Input(f"sql-database-selector-{pgnum}","value"),
+    Input(f"sql-count-col-selector-{pgnum}","value"),
+    Input(f"sql-group-col-selector-{pgnum}","value"),
+    #prevent_initial_call=True
 )
-def database_selection(database_selector_value):
-    print('database_selector_value',database_selector_value)
-    if database_selector_value == '-' or database_selector_value == None:
-        return True, True, empty_df
-    else:
-        return False, False, empty_df
+def get_sql_selector(database_selector_value, count_selector, group_selector):
+    print("database_selector:",database_selector_value)
+    print("count_selector:",count_selector)
+    print("group_selector:",group_selector)
+    if database_selector_value != "ng" and count_selector != "ng" and group_selector != "ng":
+        print('keisi semua')
+        
+        db_select_dict = {
+            'TSHC':database_file_tshc,
+            'BRCA12_Somatic':database_file_brcas
+        }
+        
+        database_file_name = db_select_dict[database_selector_value]
+
+        print("vava_db_dir:", vava_db_dir)
+        print("database_file_name:", database_file_name)
+        
+        DB_URI = f'sqlite:///{vava_db_dir}/{database_file_name}'
+        print("DB_URI:", DB_URI)
+
+        df = count_and_group(DB_URI, variant_table, count_selector, group_selector)
+        global main_table
+        main_table = get_main_table_sql(df)
+
+    return main_table
+
+
+# @callback(
+#     Output(f'upload-rekap-excel{pgnum}', 'disabled'),
+#     Output(f'upload-excel-btn-{pgnum}', 'disabled'),
+#     Output(f'main-table-{pgnum}', 'rowData'),
+#     [Input(f'database-selector-{pgnum}','value')],
+#     #allow_duplicate=True
+# )
+# def database_selection(database_selector_value):
+#     print('database_selector_value',database_selector_value)
+#     if database_selector_value == '-' or database_selector_value == None:
+#         return True, True, empty_df
+#     else:
+#         return False, False, empty_df
 
 @callback(
     Output(f'upload-rekap-excel{pgnum}', 'children'),
